@@ -7,6 +7,7 @@ Experiments of Linux Signals in Go for fun.
 ## Refs
 ### Go
 - https://golang.org/pkg/os/signal/
+- https://github.com/golang/go/blob/release-branch.go1.12/src/syscall/zerrors_linux_amd64.go#L1341-L1378
 ### Linux
 - https://github.com/torvalds/linux/blob/master/include/linux/signal.h
 - https://github.com/torvalds/linux/blob/master/kernel/signal.c
