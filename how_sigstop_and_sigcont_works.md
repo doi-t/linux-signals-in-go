@@ -1,4 +1,37 @@
-## How `SIGSTOP` and `SIGCONT` works
+# How `SIGSTOP` and `SIGCONT` works
+
+## `SIGTERM` does not terminate a process when it stops
+
+All signals except for `SIGKILL` will be queued until a stopped process resumes after `SIGCONT`.
+```shell
+root/go# sleep 1000 &
+[1] 208
+root/go# egrep 'State|SigQ' /proc/208/status
+State:	S (sleeping)
+SigQ:	0/7867
+root/go# kill -s SIGSTOP 208
+root/go# egrep 'State|SigQ' /proc/208/status
+State:	T (stopped)
+SigQ:	0/7867
+
+[1]+  Stopped                 sleep 1000
+root/go# kill -s SIGTERM 208
+root/go# egrep 'State|SigQ' /proc/208/status
+State:	T (stopped)
+SigQ:	1/7867
+root/go# kill -s SIGTSTP 208
+root/go# egrep 'State|SigQ' /proc/208/status
+State:	T (stopped)
+SigQ:	2/7867
+root/go# kill -s SIGINT 208
+root/go# egrep 'State|SigQ' /proc/208/status
+State:	T (stopped)
+SigQ:	3/7867
+root/go# kill -s SIGCONT 208
+root/go# egrep 'State|SigQ' /proc/208/status
+grep: /proc/208/status: No such file or directory
+[1]+  Interrupt               sleep 1000
+```
 
 ## Preparation
 Open a terminal and start receiver inside golang container.
@@ -39,7 +72,7 @@ docker exec -it dev_golang /bin/bash # Login to running container
 export PS1='sender:$ '
 ```
 
-# Ex.1
+## Ex.1
 
 Make sure signal queue count. You will see changes of 'SigQ'.
 Since Linux kernel clean up duplicated signals in the signal queue, the same signals won't increment the queue counter.
@@ -67,7 +100,7 @@ egrep 'State|SigQ' /proc/$(pgrep sigexp)/status
 <details><summary>Ex.1 result</summary>
 <p>
 
-## Sender
+### Sender
 ```shell
 sender:$ # Ex.1
 sender:$ egrep 'State|SigQ' /proc/$(pgrep sigexp)/status
@@ -111,7 +144,7 @@ State:	S (sleeping)
 SigQ:	0/7867
 ```
 
-## Receiver
+### Receiver
 ```shell
 receiver:$ ./sigexp -mode=receiver
 PID: 40
@@ -126,7 +159,7 @@ receiver:$ 1: Received SIGINT (interrupt)
 </p>
 </details>
 
-# Ex.2
+## Ex.2
 The following signals will be discarded when receiver receives `SIGCONT`.
 
 - SIGSTOP (stopped (signal))
@@ -153,7 +186,7 @@ egrep 'SigQ' /proc/$(pgrep sigexp)/status
 <details><summary>Ex.2 result</summary>
 <p>
 
-## Sender
+### Sender
 
 ```shell
 sender:$ # Ex. 2
@@ -179,7 +212,7 @@ sender:$ egrep 'SigQ' /proc/$(pgrep sigexp)/status
 SigQ:	0/7867
 ```
 
-## Receiver
+### Receiver
 
 ```shell
 receiver:$ # Ex. 2
@@ -189,7 +222,7 @@ receiver:$ 5: Received SIGCONT (continued)
 </p>
 </details>
 
-# Ex.3
+## Ex.3
 
 It seems that `SIGPROF` is also discorded after `SIGCONT`. I'm not sure why `SIGPROF` won't be handled. :thinking_face:
 
@@ -212,7 +245,7 @@ egrep 'SigQ' /proc/$(pgrep sigexp)/status
 <details><summary>Ex.2 result</summary>
 <p>
 
-## Sender
+### Sender
 
 ```shell
 sender:$ # Ex. 3
@@ -230,7 +263,7 @@ sender:$ egrep 'SigQ' /proc/$(pgrep sigexp)/status
 SigQ:	0/7867
 ```
 
-## Receiver
+### Receiver
 
 ```shell
 receiver:$ # Ex.3
@@ -240,7 +273,7 @@ receiver:$ 6: Received SIGCONT (continued)
 </p>
 </details>
 
-# Ex.4
+## Ex.4
 
 Reset SIGTERM and send it to terminate the receiver.
 
@@ -255,7 +288,7 @@ Reset SIGTERM and send it to terminate the receiver.
 <details><summary>Ex.2 result</summary>
 <p>
 
-## Sender
+### Sender
 
 ```shell
 sender:$ # Ex.4
@@ -271,7 +304,7 @@ sender:$ ./sigexp -mode=sender -pid=$(pgrep sigexp) -signal=SIGTERM
 Sent SIGTERM (terminated)
 ```
 
-## Receiver
+### Receiver
 
 ```shell
 receiver:$ #. Ex.4
@@ -281,6 +314,112 @@ Reset SIGINT and SIGTERM. Now you can interrupt this program with SIGINT and SIG
 9: Received SIGCONT (continued)
 
 [1]+  Terminated              ./sigexp -mode=receiver
+```
+
+</p>
+</details>
+
+## Ex.5
+
+Test [all signals](https://github.com/golang/go/blob/release-branch.go1.12/src/syscall/zerrors_linux_amd64.go#L1341-L1378).
+
+```shell
+sender:$ ./sigexp -mode=sender -pid=$(pgrep sigexp)
+```
+
+<details><summary>Ex.5 result</summary>
+<p>
+
+### Sender
+
+```shell
+sender:$ ./sigexp -mode=sender -pid=$(pgrep sigexp)
+Sent SIGSTOP (stopped (signal))
+1: Sent SIGALRM (alarm clock)
+2: Sent SIGCLD (child exited)
+3: Skipped to send SIGCONT (continued)
+4: Sent SIGFPE (floating point exception)
+5: Sent SIGIO (I/O possible)
+6: Sent SIGPIPE (broken pipe)
+7: Sent SIGTERM (terminated)
+8: Sent SIGTTIN (stopped (tty input))
+9: Sent SIGUNUSED (bad system call)
+10: Sent SIGCHLD (child exited)
+11: Sent SIGHUP (hangup)
+12: Sent SIGILL (illegal instruction)
+13: Sent SIGIOT (aborted)
+14: Sent SIGPROF (profiling timer expired)
+15: Sent SIGUSR1 (user defined signal 1)
+16: Sent SIGTRAP (trace/breakpoint trap)
+17: Sent SIGURG (urgent I/O condition)
+18: Sent SIGBUS (bus error)
+19: Sent SIGINT (interrupt)
+20: Sent SIGSTOP (stopped (signal))
+21: Sent SIGSYS (bad system call)
+22: Sent SIGWINCH (window changed)
+23: Sent SIGXFSZ (file size limit exceeded)
+24: Sent SIGABRT (aborted)
+25: Sent SIGPOLL (I/O possible)
+26: Sent SIGQUIT (quit)
+27: Sent SIGSEGV (segmentation fault)
+28: Sent SIGTTOU (stopped (tty output))
+29: Sent SIGUSR2 (user defined signal 2)
+30: Skipped to send SIGKILL (killed)
+31: Sent SIGPWR (power failure)
+32: Sent SIGSTKFLT (stack fault)
+33: Sent SIGTSTP (stopped)
+34: Sent SIGVTALRM (virtual timer expired)
+35: Sent SIGXCPU (CPU time limit exceeded)
+Sent SIGCONT (continued)
+```
+
+### Receiver
+
+As we confirmed above, receiver is missing the following signals even sender sent them during `Stopped` status.
+`SIGTERM` does not terminate receiver process after resetting it.
+If we send `SIGTERM` again, the process will be terminated.
+
+- SIGPROF (profiling timer expired)
+- SIGSTOP (stopped (signal))
+- SIGTSTP (stopped)
+- SIGTTIN (stopped (tty input))
+- SIGTTOU (stopped (tty output))
+
+```shell
+receiver:$ ./sigexp -mode=receiver
+PID: 237
+
+[1]+  Stopped                 ./sigexp -mode=receiver
+receiver:$ 1: Received SIGHUP (hangup)
+2: Received SIGINT (interrupt)
+3: Received SIGQUIT (quit)
+4: Received SIGILL (illegal instruction)
+5: Received SIGTRAP (trace/breakpoint trap)
+6: Received SIGABRT (aborted)
+6: Received SIGIOT (aborted)
+7: Received SIGBUS (bus error)
+8: Received SIGFPE (floating point exception)
+9: Received SIGUSR1 (user defined signal 1)
+Reset SIGINT and SIGTERM. Now you can interrupt this program with SIGINT and SIGTERM
+10: Received SIGSEGV (segmentation fault)
+11: Received SIGUSR2 (user defined signal 2)
+12: Received SIGPIPE (broken pipe)
+13: Received SIGALRM (alarm clock)
+14: Received SIGTERM (terminated)
+15: Received SIGSTKFLT (stack fault)
+16: Received SIGCHLD (child exited)
+16: Received SIGCLD (child exited)
+17: Received SIGCONT (continued)
+18: Received SIGURG (urgent I/O condition)
+19: Received SIGXCPU (CPU time limit exceeded)
+20: Received SIGXFSZ (file size limit exceeded)
+21: Received SIGVTALRM (virtual timer expired)
+22: Received SIGWINCH (window changed)
+23: Received SIGPOLL (I/O possible)
+23: Received SIGIO (I/O possible)
+24: Received SIGPWR (power failure)
+25: Received SIGUNUSED (bad system call)
+25: Received SIGSYS (bad system call)
 ```
 
 </p>

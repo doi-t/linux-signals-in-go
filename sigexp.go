@@ -9,7 +9,7 @@ import (
 )
 
 // Ref. https://github.com/opencontainers/runc/blob/master/signalmap.go#L12
-// Ref. https://github.com/golang/go/blob/release-branch.go1.12/src/syscall/zerrors_linux_amd64.go
+// Ref. https://github.com/golang/go/blob/release-branch.go1.12/src/syscall/zerrors_linux_amd64.go#L1341-L1378:w
 var signalMap = map[string]syscall.Signal{
 	"SIGABRT":   syscall.SIGABRT,
 	"SIGALRM":   syscall.SIGALRM,
