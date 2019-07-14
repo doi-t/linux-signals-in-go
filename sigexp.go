@@ -72,19 +72,19 @@ func signalReciever() {
 	fmt.Printf("PID: %v\n", os.Getpid())
 	signals := make(chan os.Signal, len(signalMap)) // Signal queue for pending/queued signals
 	signal.Notify(signals)                          //  All incoming signals will be relayed to 'signals'
-	i := 0
 	for {
 		select {
 		case s := <-signals:
-			i++
+			fmt.Printf("Received: ")
 			for k, v := range signalMap {
 				if v == s {
-					fmt.Printf("%v: Received %v (%v)\n", i, k, s)
+					fmt.Printf("%v ", k)
 				}
 			}
+			fmt.Printf("(%v)\n", s)
 			if s == syscall.SIGUSR1 {
 				signal.Reset(syscall.SIGINT, syscall.SIGTERM)
-				fmt.Println("Reset SIGINT and SIGTERM. Now you can interrupt this program with SIGINT and SIGTERM")
+				fmt.Println("(Reset SIGINT and SIGTERM. Now you can interrupt this program with SIGINT and SIGTERM)")
 			}
 		}
 	}
@@ -103,7 +103,7 @@ func sendSignal(pid int, signame string) {
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Sent %v (%v)\n", signame, s)
+		fmt.Printf("Sent: %v (%v)\n", signame, s)
 	} else {
 		fmt.Printf("Unknown signal name: %v\n", signame)
 	}
@@ -111,14 +111,11 @@ func sendSignal(pid int, signame string) {
 
 func sendAllSignals(pid int) {
 	sendSignal(pid, "SIGSTOP")
-	i := 0
 	for s := range signalMap {
-		i++
-		fmt.Printf("%v: ", i)
 		if s != "SIGKILL" && s != "SIGCONT" {
 			sendSignal(pid, s) // All signals will be queued stop signals.
 		} else {
-			fmt.Printf("Skipped to send %v (%v)\n", s, signalMap[s])
+			fmt.Printf("(Skipped to send %v (%v))\n", s, signalMap[s])
 		}
 	}
 	sendSignal(pid, "SIGCONT")
