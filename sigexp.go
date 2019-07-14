@@ -70,7 +70,7 @@ func main() {
 
 func signalReciever() {
 	fmt.Printf("PID: %v\n", os.Getpid())
-	signals := make(chan os.Signal, len(signalMap)) // Signal queue for pending/queued signals
+	signals := make(chan os.Signal, len(signalMap)) // Secure buffer space to handle all signals at once
 	signal.Notify(signals)                          //  All incoming signals will be relayed to 'signals'
 	for {
 		select {
@@ -113,7 +113,7 @@ func sendAllSignals(pid int) {
 	sendSignal(pid, "SIGSTOP")
 	for s := range signalMap {
 		if s != "SIGKILL" && s != "SIGCONT" {
-			sendSignal(pid, s) // All signals will be queued stop signals.
+			sendSignal(pid, s)
 		} else {
 			fmt.Printf("(Skipped to send %v (%v))\n", s, signalMap[s])
 		}
